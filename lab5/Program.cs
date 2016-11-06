@@ -4,6 +4,7 @@ using System.Collections;
 using System.Net.Security;
 using System.Security.Authentication;
 using System.Text;
+using System.Globalization;
 
 namespace lab5
 {
@@ -94,6 +95,7 @@ namespace lab5
 		public POP3EmailMessage RetrieveMessage(POP3EmailMessage msgRetr) {
 			string sMessage;
 			string sResult;
+            int result = 0;
 			POP3EmailMessage oMailMessage = new POP3EmailMessage ();
 			oMailMessage.msgSize = msgRetr.msgSize;
 			oMailMessage.msgNumber = msgRetr.msgNumber;
@@ -105,12 +107,27 @@ namespace lab5
 			oMailMessage.msgReceived = true;
 			while (true) {
 				sResult = Response (sslStream);
-				if (sResult.Contains(".\r\n"))
-					break;
-				else
-					oMailMessage.msgContent += sResult;
+                if (sResult.Contains(".\r\n"))
+                    break;
+                else
+                {
+                    if (sResult.Contains("Date: "))
+                    {
+                        DateTime parsedDate;
+                        string newDate = sResult.Remove(0, 6);
+                        newDate = newDate.Substring(0, 32);
+                        parsedDate = DateTime.Parse(newDate);
+                        DateTime yesterday = DateTime.Now;
+                        yesterday = yesterday.AddHours(-24);
+                        result = DateTime.Compare(yesterday, parsedDate);
+                    }
+                    oMailMessage.msgContent += sResult;
+                }
 			}
-			return oMailMessage;
+            if (result > 0)
+                return null;
+            else
+                return oMailMessage;
 		}
 
 
@@ -126,18 +143,6 @@ namespace lab5
             int count = 0;
             int bytes = -1;
             bytes = sslStream.Read(ServerBuffer, 0, ServerBuffer.Length);
-            //while (true) {
-            //	byte[] buff = new byte[2];
-            //	int bytes = NetStream.Read (buff, 0, 1);
-            //	if (bytes == 1) {
-            //		ServerBuffer [count] = buff [0];
-            //		count++;
-            //		if (buff [0] == '\n')
-            //			break;
-            //	} else
-            //		break;
-            //}
-            
             return Encoding.UTF8.GetString(ServerBuffer, 0, bytes);
         }
 
@@ -159,22 +164,23 @@ namespace lab5
 			{
 				POP3 oPOP = new POP3();
 				string user, pass;
-                //Console.Write("Username: ");
-                //user = Console.ReadLine();
-                //Console.Write("Password: ");
-                //pass = Console.ReadLine();
                 Console.WriteLine("Connecting pop.yandex.ru...");
-                user = "potatoe2016@yandex.ru";
-                pass = "qwerty123456";
-				//cons read user pass
-				oPOP.ConnectPOP("pop.yandex.ru", user, pass);
+                //user = "potatoe2016@yandex.ru";
+                //pass = "qwerty123456";
+                Console.WriteLine("Удостоверьтесь, что POP3 включен в натройках почты.");
+                Console.WriteLine("Введите логин на yandex mail:");
+                user = Console.ReadLine();
+                Console.WriteLine("Введите пароль:");
+                pass = Console.ReadLine();
+                oPOP.ConnectPOP("pop.yandex.ru", user, pass);
                 Console.WriteLine("Login successful.");
                 Console.WriteLine("Retrieving messages.");
                 ArrayList MessageList = oPOP.ListMessages();
 				foreach (POP3EmailMessage POPMsg in MessageList) {
 					POP3EmailMessage POPMsgContent = oPOP.RetrieveMessage(POPMsg);
-					System.Console.WriteLine("Message {0}: {1}",
-						POPMsgContent.msgNumber, POPMsgContent.msgContent);
+                    if (POPMsgContent == null)
+                        break;
+					System.Console.WriteLine("Message {0}: {1}", POPMsgContent.msgNumber, POPMsgContent.msgContent);
                 }
 				oPOP.DisconnectPOP();
 			}
@@ -184,6 +190,7 @@ namespace lab5
 			catch(System.Exception e) {
 				System.Console.WriteLine (e.ToString());
 			}
+            Console.WriteLine("Это все сообщения за последние 24 часа.");
             Console.ReadLine();
         }
 	}
